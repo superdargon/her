@@ -1,0 +1,40 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Her app icon">
+  <defs>
+    <linearGradient id="tile" x1="160" x2="864" y1="80" y2="944" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff9284"/>
+      <stop offset="1" stop-color="#ff5f64"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="40%" r="52%">
+      <stop offset="0" stop-color="#fff3dc" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#fff3dc" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="32" y="32" width="960" height="960" rx="210" fill="url(#tile)"/>
+  <circle cx="512" cy="488" r="360" fill="url(#glow)"/>
+  <rect x="145" y="645" width="730" height="270" rx="135" fill="#6ed2ca"/>
+  <rect x="105" y="690" width="430" height="250" rx="120" fill="#48b3cd" opacity="0.86"/>
+  <rect x="505" y="690" width="415" height="250" rx="120" fill="#92e1ca" opacity="0.84"/>
+  <path d="M205 395 268 112 438 420Z" fill="#f7b465"/>
+  <path d="M819 395 754 112 586 420Z" fill="#976776"/>
+  <path d="M258 344 292 190 384 373Z" fill="#ff7365" opacity="0.82"/>
+  <path d="M766 344 730 190 640 373Z" fill="#ff7365" opacity="0.82"/>
+  <ellipse cx="512" cy="490" rx="322" ry="285" fill="#ffebcb"/>
+  <path d="M212 524c-8-126 48-248 155-308 74 108 112 219 96 342-94 31-178 21-251-34Z" fill="#f5a356" opacity="0.96"/>
+  <path d="M560 216c116 46 193 161 190 292-76 63-162 77-258 44-19-124 9-237 68-336Z" fill="#976776" opacity="0.96"/>
+  <ellipse cx="512" cy="565" rx="290" ry="220" fill="#ffe9c7"/>
+  <circle cx="345" cy="580" r="78" fill="#ffb2ab" opacity="0.38"/>
+  <circle cx="680" cy="580" r="78" fill="#ffb2ab" opacity="0.38"/>
+  <ellipse cx="385" cy="478" rx="82" ry="85" fill="#261f22"/>
+  <ellipse cx="640" cy="478" rx="82" ry="85" fill="#261f22"/>
+  <path d="M323 464c34 72 93 72 124 0v75c-37 36-89 36-124 0Z" fill="#2f9fa2" opacity="0.82"/>
+  <path d="M578 464c34 72 93 72 124 0v75c-37 36-89 36-124 0Z" fill="#2f9fa2" opacity="0.82"/>
+  <circle cx="357" cy="440" r="25" fill="#fffff6" opacity="0.92"/>
+  <circle cx="612" cy="440" r="25" fill="#fffff6" opacity="0.92"/>
+  <rect x="486" y="548" width="54" height="42" rx="21" fill="#ff5b5d"/>
+  <path d="M513 585v35m0 0c-23 32-48 31-60-2m60 2c23 32 48 31 60-2" fill="none" stroke="#6f3736" stroke-width="8" stroke-linecap="round"/>
+  <path d="M330 770c-62-72-15-172 82-172 45 0 78 20 100 55 22-35 55-55 100-55 97 0 144 100 82 172L512 960Z" fill="#ff4544"/>
+  <ellipse cx="320" cy="825" rx="100" ry="105" fill="#ffe6c9"/>
+  <ellipse cx="705" cy="825" rx="100" ry="105" fill="#ffe6c9"/>
+  <path d="M242 854c27 30 68 30 96 0m324 0c27 30 68 30 96 0" fill="none" stroke="#dda686" stroke-width="8" stroke-linecap="round" opacity="0.55"/>
+  <rect x="58" y="58" width="908" height="908" rx="185" fill="none" stroke="#fff" stroke-width="10" opacity="0.3"/>
+</svg>

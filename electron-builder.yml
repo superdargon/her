@@ -5,6 +5,7 @@ directories:
 files:
   - dist-electron/**/*
   - frontend/dist/**/*
+  - public/**/*
   - node_modules/**/*
   - "!node_modules/.cache/**"
 asar: true
@@ -12,7 +13,7 @@ asarUnpack:
   - node_modules/sql.js/dist/*.wasm
 win:
   target: nsis
-  icon: public/icon.png
+  icon: public/icon.ico
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
