@@ -1,0 +1,391 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Her Desktop Mascot</title>
+<style>
+  :root {
+    --pet-window-width: 320px;
+    --pet-window-height: 360px;
+    --pet-stage-width: 220px;
+    --pet-stage-height: 220px;
+    --pet-base-size: 132px;
+    --pet-text: #8b5f59;
+    --pet-text-soft: rgba(139, 95, 89, 0.8);
+    --pet-card: rgba(255, 252, 248, 0.94);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: transparent; user-select: none;
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+  }
+  body { display: flex; align-items: flex-end; justify-content: center; }
+  .pet-shell {
+    position: relative; width: var(--pet-window-width); height: var(--pet-window-height);
+    overflow: hidden; pointer-events: none;
+  }
+  .pet-floor-shadow {
+    position: absolute; left: 50%; bottom: 34px;
+    width: 136px; height: 28px; border-radius: 999px;
+    background: radial-gradient(circle, rgba(153,111,95,0.3) 0%, rgba(153,111,95,0.1) 52%, rgba(153,111,95,0) 78%);
+    transform: translateX(-50%); filter: blur(2px); opacity: 0.92;
+    transition: width 220ms ease, opacity 220ms ease;
+  }
+  .pet-floor-shadow.walking { width: 146px; opacity: 0.78; }
+  .pet-stage {
+    position: absolute; left: 50%; bottom: 50px;
+    width: var(--pet-stage-width); height: var(--pet-stage-height);
+    transform: translateX(-50%); pointer-events: none;
+  }
+  .pet {
+    position: absolute; left: 50%; bottom: 0;
+    width: var(--pet-base-size); height: var(--pet-base-size);
+    transform: translateX(-50%); transform-origin: center bottom;
+    image-rendering: pixelated; image-rendering: crisp-edges;
+    pointer-events: auto; cursor: pointer;
+    filter: drop-shadow(0 12px 16px rgba(133,93,71,0.18));
+    transition: filter 180ms ease;
+  }
+  .pet:hover { filter: drop-shadow(0 14px 20px rgba(133,93,71,0.24)); }
+  .pet img {
+    width: 100%; height: 100%; object-fit: contain;
+    display: block; pointer-events: none;
+  }
+  .pet.squash { animation: pet-squash 340ms ease; }
+  .pet.panel { animation: pet-panel-idle 3.2s ease-in-out infinite; }
+  .pet.walk-bob { animation: pet-walk-bob 420ms linear infinite; }
+  .pet-panel {
+    position: absolute; left: 50%; top: 14px;
+    width: 256px; min-height: 70px;
+    transform: translateX(-50%);
+    padding: 12px 14px 14px;
+    border-radius: 18px;
+    background: var(--pet-card);
+    box-shadow: 0 12px 30px rgba(164,122,104,0.16), inset 0 1px 0 rgba(255,255,255,0.92);
+    backdrop-filter: blur(6px);
+    pointer-events: auto; cursor: grab;
+  }
+  .pet-panel::after {
+    content: ""; position: absolute; left: 50%; bottom: -10px;
+    width: 18px; height: 18px; background: var(--pet-card);
+    transform: translateX(-50%) rotate(45deg); border-radius: 4px;
+  }
+  .pet-panel-header {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 6px; pointer-events: none;
+  }
+  .pet-avatar {
+    width: 26px; height: 26px; border-radius: 10px;
+    background: linear-gradient(180deg, #fff8f8 0%, #ffe5ea 100%);
+    box-shadow: inset 0 0 0 1px rgba(242,178,191,0.55);
+    overflow: hidden; flex: 0 0 auto;
+  }
+  .pet-avatar img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+  .pet-title-wrap { display: flex; flex-direction: column; min-width: 0; }
+  .pet-title { font-size: 14px; line-height: 1.1; font-weight: 700; color: var(--pet-text); }
+  .pet-subtitle { font-size: 11px; line-height: 1.2; color: var(--pet-text-soft); }
+  .pet-message { font-size: 13px; line-height: 1.45; color: var(--pet-text); min-height: 18px; pointer-events: none; }
+  .pet-badges { position: absolute; inset: 0; pointer-events: none; }
+  .badge {
+    position: absolute; font-size: 24px; opacity: 0;
+    transform: translateY(6px) scale(0.88); transition: opacity 180ms ease;
+    filter: drop-shadow(0 4px 10px rgba(255,185,198,0.32));
+  }
+  .badge.show { opacity: 1; animation: badge-float 1.7s ease forwards; }
+  .badge-heart { left: 186px; bottom: 104px; }
+  .badge-sparkle { left: 88px; bottom: 146px; }
+  .badge-zzz { left: 190px; bottom: 150px; }
+  .pet-hint {
+    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+    font-size: 11px; color: rgba(139,95,89,0.65); white-space: nowrap; pointer-events: none;
+  }
+  @keyframes pet-panel-idle {
+    0%, 100% { transform: translateX(-50%) translateY(0) scale(1); }
+    25% { transform: translateX(-50%) translateY(-2px) scale(1.01); }
+    58% { transform: translateX(-50%) translateY(0) scale(0.995, 1.006); }
+    82% { transform: translateX(-50%) translateY(-2px) scale(1.008); }
+  }
+  @keyframes pet-squash {
+    0% { transform: translateX(-50%) scale(1, 1); }
+    28% { transform: translateX(-50%) scale(1.06, 0.92); }
+    52% { transform: translateX(-50%) scale(0.98, 1.03); }
+    100% { transform: translateX(-50%) scale(1, 1); }
+  }
+  @keyframes pet-walk-bob {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-3px); }
+  }
+  @keyframes badge-float {
+    0% { opacity: 0; transform: translateY(8px) scale(0.82); }
+    18% { opacity: 1; transform: translateY(0) scale(1); }
+    82% { opacity: 1; transform: translateY(-20px) scale(1.03); }
+    100% { opacity: 0; transform: translateY(-30px) scale(0.95); }
+  }
+</style>
+</head>
+<body>
+  <div class="pet-shell">
+    <div class="pet-panel" id="petPanel">
+      <div class="pet-panel-header">
+        <div class="pet-avatar"><img src="./pet-assets/idle-1.png" alt="avatar" draggable="false"></div>
+        <div class="pet-title-wrap">
+          <div class="pet-title">软糖</div>
+          <div class="pet-subtitle" id="petModeLabel">待机中</div>
+        </div>
+      </div>
+      <div class="pet-message" id="petMessage">嗷，今天也陪着你。</div>
+    </div>
+    <div class="pet-badges">
+      <div class="badge badge-heart" id="badgeHeart">💖</div>
+      <div class="badge badge-sparkle" id="badgeSparkle">✨</div>
+      <div class="badge badge-zzz" id="badgeZzz">💤</div>
+    </div>
+    <div class="pet-floor-shadow" id="petShadow"></div>
+    <div class="pet-stage" id="petStage">
+      <div class="pet panel" id="pet">
+        <img id="petSprite" src="./pet-assets/idle-1.png" alt="pet" draggable="false">
+      </div>
+    </div>
+    <div class="pet-hint">拖动上方对话框移动，点猫咪会有回应。</div>
+  </div>
+
+<script>
+  const pet = document.getElementById('pet')
+  const petSprite = document.getElementById('petSprite')
+  const petStage = document.getElementById('petStage')
+  const petShadow = document.getElementById('petShadow')
+  const petMessage = document.getElementById('petMessage')
+  const petModeLabel = document.getElementById('petModeLabel')
+  const petPanel = document.getElementById('petPanel')
+  const badgeHeart = document.getElementById('badgeHeart')
+  const badgeSparkle = document.getElementById('badgeSparkle')
+  const badgeZzz = document.getElementById('badgeZzz')
+
+  const frames = {
+    idle: ['./pet-assets/idle-1.png','./pet-assets/idle-2.png','./pet-assets/idle-3.png','./pet-assets/idle-4.png'],
+    move: ['./pet-assets/walk-1.png','./pet-assets/walk-2.png','./pet-assets/walk-3.png','./pet-assets/walk-4.png'],
+    interact: ['./pet-assets/interact-1.png','./pet-assets/interact-2.png','./pet-assets/interact-3.png','./pet-assets/interact-4.png','./pet-assets/interact-5.png'],
+    sleep: ['./pet-assets/sleep-1.png','./pet-assets/sleep-2.png','./pet-assets/sleep-3.png','./pet-assets/sleep-4.png'],
+    think: ['./pet-assets/think-1.png','./pet-assets/think-2.png','./pet-assets/think-3.png','./pet-assets/think-4.png'],
+  }
+  const messages = {
+    idle: ['嗷，今天也陪着你。','软糖安静守在这里。','你忙你的，我在旁边待机。'],
+    happy: ['摸摸收到，软糖好开心。','喵呜，有被好好照顾到。'],
+    thinking: ['让我慢慢想一下…','软糖正在放空脑袋。'],
+    sleepy: ['有点困，先眯一会。','软糖在你旁边打个盹。'],
+    walking: ['软糖在桌面上小跑。','出来活动一下小短腿。'],
+  }
+  const labels = { idle:'待机中', happy:'开心', thinking:'思考中', sleepy:'困了', walking:'散步' }
+
+  let idleFrameIndex = 0, moveFrameIndex = 0, interactFrameIndex = 0
+  let sleepFrameIndex = 0, thinkLoopIndex = 0
+  let idleFrameTimer = null, moveFrameTimer = null, sleepFrameTimer = null
+  let thinkFrameTimer = null, thinkGlowTimer = null, moodTimer = null
+  let autonomousTimer = null, actionLockUntil = 0, inactivityMs = 0
+  let mood = 'idle', isDragging = false, walkDirection = 1
+
+  function randomItem(l) { return l[Math.floor(Math.random() * l.length)] }
+  function setMessage(mode, c) {
+    petModeLabel.textContent = labels[mode] || labels.idle
+    petMessage.textContent = c || randomItem(messages[mode] || messages.idle)
+  }
+  function showBadge(el) {
+    el.classList.remove('show')
+    requestAnimationFrame(() => el.classList.add('show'))
+    setTimeout(() => el.classList.remove('show'), 1700)
+  }
+  function stopTimers() {
+    clearInterval(idleFrameTimer); clearInterval(moveFrameTimer)
+    clearInterval(sleepFrameTimer); clearInterval(thinkFrameTimer)
+    clearTimeout(moodTimer); clearTimeout(thinkGlowTimer)
+    idleFrameTimer = moveFrameTimer = sleepFrameTimer = thinkFrameTimer = thinkGlowTimer = moodTimer = null
+  }
+  function clearPetClasses() {
+    pet.classList.remove('panel','walk-bob','squash')
+    petShadow.classList.remove('walking'); pet.style.filter = ''
+  }
+  function playIdleFrames() {
+    clearInterval(idleFrameTimer); idleFrameIndex = 0
+    petSprite.src = frames.idle[0]
+    idleFrameTimer = setInterval(() => {
+      idleFrameIndex = (idleFrameIndex + 1) % frames.idle.length
+      petSprite.src = frames.idle[idleFrameIndex]
+    }, 2000)
+  }
+  function enterIdle(c) {
+    mood = 'idle'; stopTimers(); clearPetClasses()
+    pet.classList.add('panel'); petSprite.style.transform = 'scaleX(1)'
+    playIdleFrames(); setMessage('idle', c)
+  }
+  function enterThinking() {
+    const tl = [0,1,2,3,1,2,3]
+    mood = 'thinking'; stopTimers(); clearPetClasses()
+    pet.classList.add('panel'); thinkLoopIndex = 0
+    petSprite.src = frames.think[0]; setMessage('thinking'); showBadge(badgeSparkle)
+    actionLockUntil = Date.now() + 3600
+    thinkFrameTimer = setInterval(() => {
+      thinkLoopIndex = (thinkLoopIndex + 1) % tl.length
+      petSprite.src = frames.think[tl[thinkLoopIndex]]
+    }, 2000)
+    thinkGlowTimer = setTimeout(() => {
+      pet.style.filter = 'drop-shadow(0 12px 16px rgba(133,93,71,0.18)) drop-shadow(0 0 10px rgba(166,142,255,0.9)) drop-shadow(0 0 16px rgba(255,229,135,0.75))'
+    }, 3000)
+    moodTimer = setTimeout(() => { if (mood === 'thinking') enterIdle() }, 12000)
+  }
+  function enterSleepy() {
+    mood = 'sleepy'; stopTimers(); clearPetClasses()
+    sleepFrameIndex = 0; petSprite.src = frames.sleep[0]
+    setMessage('sleepy'); showBadge(badgeZzz); actionLockUntil = Date.now() + 3600
+    sleepFrameTimer = setInterval(() => {
+      sleepFrameIndex = (sleepFrameIndex + 1) % frames.sleep.length
+      petSprite.src = frames.sleep[sleepFrameIndex]
+    }, 1500)
+  }
+  function playInteract() {
+    mood = 'happy'; stopTimers(); clearPetClasses()
+    pet.classList.add('squash'); interactFrameIndex = 0
+    petSprite.src = frames.interact[0]; setMessage('happy'); showBadge(badgeHeart)
+    actionLockUntil = Date.now() + 1800
+    moodTimer = setInterval(() => {
+      interactFrameIndex++
+      if (interactFrameIndex >= frames.interact.length) {
+        clearInterval(moodTimer); moodTimer = null; enterIdle(); return
+      }
+      petSprite.src = frames.interact[interactFrameIndex]
+    }, 180)
+  }
+  function startWalking() {
+    mood = 'walking'; stopTimers(); clearPetClasses()
+    pet.classList.add('walk-bob'); petShadow.classList.add('walking'); setMessage('walking')
+    moveFrameIndex = 0; petSprite.src = frames.move[0]
+    petSprite.style.transform = walkDirection < 0 ? 'scaleX(-1)' : 'scaleX(1)'
+    moveFrameTimer = setInterval(() => {
+      moveFrameIndex = (moveFrameIndex + 1) % frames.move.length
+      petSprite.src = frames.move[moveFrameIndex]
+    }, 125)
+  }
+  function registerActivity() {
+    const was = mood === 'sleepy'; inactivityMs = 0
+    if (was) { actionLockUntil = 0; enterIdle('睡饱啦，继续陪你。') }
+  }
+
+  function startDragging() {
+    if (isDragging) return
+    isDragging = true
+    actionLockUntil = Number.POSITIVE_INFINITY
+    window.electronAPI?.setPetMouseMode(true)
+    window.electronAPI?.petDragStart()
+    startWalking()
+  }
+
+  function endDragging() {
+    if (!isDragging) return
+    isDragging = false
+    actionLockUntil = 0
+    window.electronAPI?.petDragEnd()
+    // Don't call setPetMouseMode(false) here to avoid window drift.
+    // updateMouseRegion will handle it on next mousemove.
+    enterIdle('回到待机。')
+  }
+
+  function updateMouseRegion(event) {
+    const target = document.elementFromPoint(event.clientX, event.clientY)
+    const interactive = Boolean(target?.closest?.('#pet, #petPanel'))
+    window.electronAPI?.setPetMouseMode(interactive)
+  }
+
+  function autonomousTick() {
+    inactivityMs += 4000
+    if (isDragging || Date.now() < actionLockUntil || mood === 'walking') return
+    if (inactivityMs >= 26000) { enterSleepy(); return }
+    if (inactivityMs >= 12000 && Math.random() > 0.56) { enterThinking(); return }
+    if (Math.random() > 0.62 && mood === 'idle') {
+      walkDirection = Math.random() > 0.5 ? 1 : -1
+      startWalking()
+      // Stop autonomous walking after a few seconds
+      setTimeout(() => { if (mood === 'walking' && !isDragging) enterIdle() }, 3000 + Math.random() * 2000)
+    }
+  }
+
+  // --- Events ---
+  let clickLock = false
+
+  // Pet mousedown → drag the pet
+  pet.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    e.stopPropagation()
+    clickLock = true
+    registerActivity()
+    startDragging()
+  })
+
+  // Panel mousedown → drag via panel
+  petPanel.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    registerActivity()
+    startDragging()
+  })
+
+  // Click on pet → interact (only if not dragged)
+  pet.addEventListener('click', (e) => {
+    if (clickLock) { clickLock = false; return }
+    e.preventDefault(); registerActivity(); playInteract()
+  })
+
+  // Mousemove: handle drag + direction + mouse region
+  // Use RAF to throttle drag moves and prevent window-move → mousemove feedback loop
+  let dragRafPending = false
+  let lastMoveX = 0
+
+  window.addEventListener('mousemove', (event) => {
+    registerActivity()
+
+    if (isDragging) {
+      // Safety check: if mouse button released but mouseup missed
+      if (!(event.buttons & 1)) {
+        endDragging()
+        return
+      }
+      // Track movement direction
+      lastMoveX = event.movementX
+      // Throttle drag move to once per frame
+      if (!dragRafPending) {
+        dragRafPending = true
+        requestAnimationFrame(() => {
+          dragRafPending = false
+          if (!isDragging) return
+          // Update walk direction
+          if (lastMoveX > 0) {
+            if (walkDirection !== 1) { walkDirection = 1; petSprite.style.transform = 'scaleX(1)' }
+          } else if (lastMoveX < 0) {
+            if (walkDirection !== -1) { walkDirection = -1; petSprite.style.transform = 'scaleX(-1)' }
+          }
+          window.electronAPI?.petDragMove()
+        })
+      }
+    } else {
+      updateMouseRegion(event)
+    }
+  })
+
+  window.addEventListener('mousedown', registerActivity)
+  window.addEventListener('keydown', registerActivity)
+
+  window.addEventListener('mouseup', () => { endDragging() })
+  window.addEventListener('blur', () => { endDragging() })
+  document.addEventListener('mouseleave', () => { if (!isDragging) window.electronAPI?.setPetMouseMode(false) })
+  document.addEventListener('visibilitychange', () => { if (document.hidden) endDragging() })
+
+  // --- Init ---
+  window.electronAPI?.setPetMouseMode(false)
+  enterIdle()
+  autonomousTimer = setInterval(autonomousTick, 4000)
+</script>
+</body>
+</html>
+
+

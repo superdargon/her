@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#fff7fb" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>妳 - AI陪伴</title>
+    <script>
+      (function() {
+        var t = {primary:'#ffb8c7',primaryHover:'#ff70a6',primarySubtle:'#ffb8c71a',bg:'#fff7fb',surface:'#ffffff',surfaceHover:'#fff1f7',text:'#3c2f42',textSecondary:'#8b7b91',border:'#ffd6e7',success:'#34d399',successSubtle:'#34d3991a',warning:'#fbbf24',warningSubtle:'#fbbf241a',danger:'#fb7185',dangerHover:'#f87185',dangerSubtle:'#fb71851a',link:'#ff70a6',shadow:'0 10px 30px rgba(255,107,154,0.08)',navBg:'rgba(255,255,255,0.82)',navBorder:'rgba(255,214,231,0.5)',skeleton:'#ffd6e7',bubbleOut:'#ffb8c7',bubbleIn:'#fff7fb',radiusCard:'18px',radiusBtn:'18px',radiusInput:'16px',radiusAvatar:'14px',fontFamily:'"Noto Sans SC","PingFang SC",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif'};
+        try { localStorage.setItem('her-theme', 'cute'); } catch(e) {}
+        var root = document.documentElement;
+        root.style.setProperty('--color-primary', t.primary);
+        root.style.setProperty('--color-primary-hover', t.primaryHover);
+        root.style.setProperty('--color-primary-subtle', t.primarySubtle);
+        root.style.setProperty('--color-bg', t.bg);
+        root.style.setProperty('--color-surface', t.surface);
+        root.style.setProperty('--color-surface-hover', t.surfaceHover);
+        root.style.setProperty('--color-text', t.text);
+        root.style.setProperty('--color-text-secondary', t.textSecondary);
+        root.style.setProperty('--color-border', t.border);
+        root.style.setProperty('--color-success', t.success);
+        root.style.setProperty('--color-success-subtle', t.successSubtle);
+        root.style.setProperty('--color-warning', t.warning);
+        root.style.setProperty('--color-warning-subtle', t.warningSubtle);
+        root.style.setProperty('--color-danger', t.danger);
+        root.style.setProperty('--color-danger-hover', t.dangerHover);
+        root.style.setProperty('--color-danger-subtle', t.dangerSubtle);
+        root.style.setProperty('--color-link', t.link);
+        root.style.setProperty('--shadow-card', t.shadow);
+        root.style.setProperty('--color-nav-bg', t.navBg);
+        root.style.setProperty('--color-nav-border', t.navBorder);
+        root.style.setProperty('--color-skeleton', t.skeleton);
+        root.style.setProperty('--color-bubble-out', t.bubbleOut);
+        root.style.setProperty('--color-bubble-in', t.bubbleIn);
+        root.style.setProperty('--radius-card', t.radiusCard);
+        root.style.setProperty('--radius-btn', t.radiusBtn);
+        root.style.setProperty('--radius-input', t.radiusInput);
+        root.style.setProperty('--radius-avatar', t.radiusAvatar);
+        root.style.setProperty('--font-family', t.fontFamily);
+      })();
+    </script>
+    <style>
+      html { -webkit-font-smoothing: antialiased; }
+      body { background: var(--color-bg); color: var(--color-text); font-family: var(--font-family); margin: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx?v=5"></script>
+  </body>
+</html>

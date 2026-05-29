@@ -1,0 +1,223 @@
+{
+  "source": "reference-board.png",
+  "style": "cropped directly from supplied soft candy ragdoll pixel kitten reference board",
+  "format": "transparent PNG sprites upscaled nearest-neighbor for HD-2D pixel UI",
+  "assets": [
+    {
+      "file": "assets/mascot/views/front.png",
+      "source_box": [
+        610,
+        68,
+        740,
+        207
+      ],
+      "size": [
+        588,
+        640
+      ]
+    },
+    {
+      "file": "assets/mascot/views/left.png",
+      "source_box": [
+        780,
+        66,
+        910,
+        208
+      ],
+      "size": [
+        596,
+        644
+      ]
+    },
+    {
+      "file": "assets/mascot/views/right.png",
+      "source_box": [
+        940,
+        67,
+        1074,
+        210
+      ],
+      "size": [
+        620,
+        656
+      ]
+    },
+    {
+      "file": "assets/mascot/views/back.png",
+      "source_box": [
+        1110,
+        66,
+        1235,
+        210
+      ],
+      "size": [
+        548,
+        652
+      ]
+    },
+    {
+      "file": "assets/mascot/emotions/happy.png",
+      "source_box": [
+        602,
+        343,
+        705,
+        454
+      ],
+      "size": [
+        512,
+        484
+      ]
+    },
+    {
+      "file": "assets/mascot/emotions/love.png",
+      "source_box": [
+        728,
+        337,
+        836,
+        452
+      ],
+      "size": [
+        484,
+        536
+      ]
+    },
+    {
+      "file": "assets/mascot/emotions/sad.png",
+      "source_box": [
+        850,
+        342,
+        948,
+        454
+      ],
+      "size": [
+        468,
+        480
+      ]
+    },
+    {
+      "file": "assets/mascot/emotions/error.png",
+      "source_box": [
+        970,
+        340,
+        1072,
+        456
+      ],
+      "size": [
+        520,
+        524
+      ]
+    },
+    {
+      "file": "assets/mascot/emotions/warning.png",
+      "source_box": [
+        1090,
+        342,
+        1194,
+        456
+      ],
+      "size": [
+        496,
+        516
+      ]
+    },
+    {
+      "file": "assets/mascot/emotions/sleeping.png",
+      "source_box": [
+        1210,
+        342,
+        1310,
+        456
+      ],
+      "size": [
+        480,
+        512
+      ]
+    },
+    {
+      "file": "assets/mascot/emotions/idle.png",
+      "source_box": [
+        28,
+        604,
+        130,
+        709
+      ],
+      "size": [
+        484,
+        504
+      ]
+    },
+    {
+      "file": "assets/mascot/emotions/listening.png",
+      "source_box": [
+        148,
+        604,
+        252,
+        709
+      ],
+      "size": [
+        496,
+        504
+      ]
+    },
+    {
+      "file": "assets/mascot/emotions/thinking.png",
+      "source_box": [
+        389,
+        604,
+        494,
+        709
+      ],
+      "size": [
+        464,
+        504
+      ]
+    },
+    {
+      "file": "assets/mascot/emotions/typing.png",
+      "source_box": [
+        508,
+        604,
+        612,
+        709
+      ],
+      "size": [
+        460,
+        500
+      ]
+    },
+    {
+      "file": "assets/mascot/emotions/excited.png",
+      "source_box": [
+        148,
+        744,
+        258,
+        862
+      ],
+      "size": [
+        440,
+        584
+      ]
+    },
+    {
+      "file": "assets/mascot/emotions/celebrating.png",
+      "source_box": [
+        268,
+        744,
+        378,
+        862
+      ],
+      "size": [
+        552,
+        496
+      ]
+    },
+    {
+      "file": "assets/mascot/emotions/shy.png",
+      "alias": "emotions/love.png"
+    },
+    {
+      "file": "assets/mascot/emotions/clingy.png",
+      "alias": "emotions/love.png"
+    }
+  ]
+}

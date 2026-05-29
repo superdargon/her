@@ -1,0 +1,19 @@
+appId: com.her.app
+productName: 妳
+directories:
+  output: dist-her
+files:
+  - dist-electron/**/*
+  - frontend/dist/**/*
+  - node_modules/**/*
+  - "!node_modules/.cache/**"
+asar: true
+asarUnpack:
+  - node_modules/sql.js/dist/*.wasm
+win:
+  target: nsis
+  icon: public/icon.png
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
