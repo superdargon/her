@@ -1,4 +1,4 @@
-# Contributing
+﻿# Contributing
 
 Thanks for helping improve 妳 / Her.
 
@@ -19,3 +19,4 @@ Thanks for helping improve 妳 / Her.
 ## Product Direction
 
 The app should stay local-first, safe, and companion-oriented. Relationship and emotion systems should be driven by user interaction and conversation context, not manipulative pressure.
+

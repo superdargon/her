@@ -702,6 +702,11 @@ var store = new import_electron_store.default({
     aiApiKey: "",
     aiModel: "deepseek-chat",
     aiBaseUrl: "https://api.deepseek.com",
+    webSearchEnabled: false,
+    webSearchProvider: "tavily",
+    webSearchApiKey: "",
+    webSearchEndpoint: "https://api.tavily.com/search",
+    webSearchMaxResults: 5,
     jwtSecret: (0, import_uuid.v4)()
   },
   encryptionKey: "her-config"
@@ -810,13 +815,30 @@ function dbAll(sql, params = []) {
   stmt.free();
   return rows;
 }
+function parseLocalMessageContent(content) {
+  const raw = String(content || "");
+  if (!raw.trim().startsWith("{")) return { text: raw, images: [] };
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.kind === "multimodal") {
+      return {
+        text: String(parsed.text || ""),
+        images: Array.isArray(parsed.images) ? parsed.images.filter((url) => typeof url === "string") : []
+      };
+    }
+  } catch {
+  }
+  return { text: raw, images: [] };
+}
 function formatChatHistory(rows) {
   if (!rows || rows.length === 0) {
     return "\uFF08\u6682\u65E0\u53EF\u7528\u5386\u53F2\uFF0C\u4E0D\u8981\u731C\u6D4B\u7528\u6237\u4E4B\u524D\u8BF4\u8FC7\u4EC0\u4E48\u3002\uFF09";
   }
   return rows.map((row) => {
     const speaker = row.role === "assistant" || row.direction === "out" ? "\u4F60" : "\u7528\u6237";
-    return `${speaker}: ${String(row.content || "").slice(0, 500)}`;
+    const parsed = parseLocalMessageContent(row.content);
+    const imageNote = parsed.images.length ? ` [??${parsed.images.length}?]` : "";
+    return `${speaker}: ${String(parsed.text || "").slice(0, 500)}${imageNote}`;
   }).join("\n");
 }
 function formatCurrentTopic(rows) {
@@ -831,6 +853,71 @@ function getLocalChatHistory(userId, characterId, limit = 30) {
     "SELECT role, content, created_at FROM local_chat_messages WHERE user_id = ? AND character_id = ? ORDER BY created_at DESC LIMIT ?",
     [userId, characterId, limit]
   ).reverse();
+}
+function makeLocalMessageContent(text, images = []) {
+  const cleanImages = Array.isArray(images) ? images.filter((url) => typeof url === "string" && /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(url)).slice(0, 4) : [];
+  const cleanText = String(text || "");
+  if (!cleanImages.length) return cleanText;
+  return JSON.stringify({ kind: "multimodal", text: cleanText, images: cleanImages });
+}
+function getWebSearchConfig() {
+  return {
+    enabled: store.get("webSearchEnabled") === true,
+    provider: String(store.get("webSearchProvider") || "tavily"),
+    apiKey: String(store.get("webSearchApiKey") || ""),
+    endpoint: String(store.get("webSearchEndpoint") || ""),
+    maxResults: Math.min(10, Math.max(1, Number(store.get("webSearchMaxResults") || 5)))
+  };
+}
+function normalizeSearchResults(data, provider) {
+  const rawResults = Array.isArray(data?.results) ? data.results : Array.isArray(data?.organic) ? data.organic : Array.isArray(data?.webPages?.value) ? data.webPages.value : Array.isArray(data?.items) ? data.items : [];
+  return rawResults.map((item) => ({
+    title: String(item.title || item.name || "").trim(),
+    url: String(item.url || item.link || "").trim(),
+    content: String(item.content || item.snippet || item.description || item.text || "").trim()
+  })).filter((item) => item.title || item.content || item.url);
+}
+async function runWebSearch(query) {
+  const cfg = getWebSearchConfig();
+  const cleanQuery = String(query || "").trim().slice(0, 240);
+  if (!cfg.enabled || !cfg.apiKey || !cleanQuery) return { used: false, reason: "disabled", results: [] };
+  const provider = cfg.provider.toLowerCase();
+  const endpoint = cfg.endpoint || (provider === "serper" ? "https://google.serper.dev/search" : provider === "bing" ? "https://api.bing.microsoft.com/v7.0/search" : "https://api.tavily.com/search");
+  try {
+    let resp;
+    if (provider === "bing") {
+      const url = `${endpoint}?q=${encodeURIComponent(cleanQuery)}&count=${cfg.maxResults}`;
+      resp = await fetch(url, { headers: { "Ocp-Apim-Subscription-Key": cfg.apiKey } });
+    } else if (provider === "serper") {
+      resp = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-KEY": cfg.apiKey },
+        body: JSON.stringify({ q: cleanQuery, num: cfg.maxResults })
+      });
+    } else {
+      resp = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${cfg.apiKey}` },
+        body: JSON.stringify({ api_key: cfg.apiKey, query: cleanQuery, max_results: cfg.maxResults, search_depth: "basic", include_answer: true })
+      });
+    }
+    if (!resp.ok) return { used: true, reason: `search_error_${resp.status}`, results: [] };
+    const data = await resp.json();
+    const results = normalizeSearchResults(data, provider).slice(0, cfg.maxResults);
+    return { used: true, reason: "ok", results, answer: String(data?.answer || "").trim() };
+  } catch (err) {
+    return { used: true, reason: `search_exception:${err.message || String(err)}`, results: [] };
+  }
+}
+function formatWebSearchContext(search) {
+  if (!search?.used) return "";
+  if (!search.results?.length && !search.answer) return "\u3010\u8054\u7f51\u641c\u7d22\u53c2\u8003\u3011\n\u672c\u8f6e\u5df2\u5c1d\u8bd5\u641c\u7d22\uff0c\u4f46\u6ca1\u6709\u83b7\u53d6\u5230\u53ef\u9760\u7ed3\u679c\u3002\u4e0d\u8981\u7f16\u9020\u5b9e\u65f6\u4fe1\u606f\u3002\n\n";
+  const lines = [];
+  if (search.answer) lines.push(`\u6458\u8981\uff1a${search.answer.slice(0, 600)}`);
+  for (const [index, item] of search.results.entries()) {
+    lines.push(`${index + 1}. ${item.title || "\u672a\u547d\u540d"}\n${item.content.slice(0, 500)}\n${item.url}`);
+  }
+  return "\u3010\u8054\u7f51\u641c\u7d22\u53c2\u8003 - \u4ec5\u4f5c\u672c\u8f6e\u4e34\u65f6\u4fe1\u606f\uff0c\u4e0d\u5199\u5165\u89d2\u8272\u8bb0\u5fc6\u3011\n" + lines.join("\n\n") + "\n\n";
 }
 function addLocalChatMessage(userId, characterId, role, content) {
   dbRun(
@@ -1063,6 +1150,25 @@ function addWechatSystemMessage(botId, content) {
 function clampMemoryValue(value) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
+function getDayStart(timestamp = Date.now()) {
+  const date = new Date(timestamp);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+function resetSubscriptionUsageIfNeeded(userId, now = Date.now()) {
+  const sub = dbGet("SELECT * FROM subscriptions WHERE user_id = ?", [userId]);
+  if (!sub) return null;
+  const todayStart = getDayStart(now);
+  if (Number(sub.last_reset || 0) >= todayStart) return sub;
+  dbRun("UPDATE subscriptions SET used_today = 0, last_reset = ? WHERE user_id = ?", [todayStart, userId]);
+  saveDB();
+  return { ...sub, used_today: 0, last_reset: todayStart };
+}
+function incrementSubscriptionUsage(userId, amount = 1, now = Date.now()) {
+  const sub = resetSubscriptionUsageIfNeeded(userId, now);
+  if (!sub) return;
+  dbRun("UPDATE subscriptions SET used_today = COALESCE(used_today, 0) + ? WHERE user_id = ?", [amount, userId]);
+}
 function getRelationshipMemory(userId, characterId) {
   const row = dbGet("SELECT * FROM relationship_memories WHERE user_id = ? AND character_id = ?", [userId, characterId]);
   if (row) return row;
@@ -1162,7 +1268,7 @@ var monitorManager = null;
 function createServer(port, frontendDist, mm) {
   const server2 = (0, import_express.default)();
   server2.use((0, import_cors.default)());
-  server2.use(import_express.default.json({ limit: "10mb" }));
+  server2.use(import_express.default.json({ limit: "30mb" }));
   server2.use(import_express.default.static(frontendDist));
   function authMiddleware(req, res, next) {
     const header = req.headers.authorization;
@@ -1228,6 +1334,12 @@ function createServer(port, frontendDist, mm) {
       aiApiKey: store.get("aiApiKey") ? "***" : "",
       aiModel: store.get("aiModel"),
       aiBaseUrl: store.get("aiBaseUrl"),
+      webSearchEnabled: store.get("webSearchEnabled") === true,
+      webSearchProvider: String(store.get("webSearchProvider") || "tavily"),
+      webSearchApiKey: store.get("webSearchApiKey") ? "***" : "",
+      webSearchEndpoint: String(store.get("webSearchEndpoint") || ""),
+      webSearchMaxResults: Number(store.get("webSearchMaxResults") || 5),
+      hasWebSearchKey: !!store.get("webSearchApiKey"),
       displayName: String(store.get("displayName") || ""),
       hasApiKey: !!store.get("aiApiKey"),
       proactiveEnabled: store.get("proactiveEnabled") !== false,
@@ -1247,6 +1359,11 @@ function createServer(port, frontendDist, mm) {
       aiApiKey,
       aiModel,
       aiBaseUrl,
+      webSearchEnabled,
+      webSearchProvider,
+      webSearchApiKey,
+      webSearchEndpoint,
+      webSearchMaxResults,
       displayName,
       proactiveEnabled,
       proactiveMinIdleHours,
@@ -1262,6 +1379,11 @@ function createServer(port, frontendDist, mm) {
     if (aiApiKey !== void 0 && aiApiKey !== "***") store.set("aiApiKey", aiApiKey);
     if (aiModel !== void 0) store.set("aiModel", aiModel);
     if (aiBaseUrl !== void 0) store.set("aiBaseUrl", aiBaseUrl);
+    if (webSearchEnabled !== void 0) store.set("webSearchEnabled", !!webSearchEnabled);
+    if (webSearchProvider !== void 0) store.set("webSearchProvider", String(webSearchProvider || "tavily"));
+    if (webSearchApiKey !== void 0 && webSearchApiKey !== "***") store.set("webSearchApiKey", String(webSearchApiKey || ""));
+    if (webSearchEndpoint !== void 0) store.set("webSearchEndpoint", String(webSearchEndpoint || ""));
+    if (webSearchMaxResults !== void 0) store.set("webSearchMaxResults", Math.min(10, Math.max(1, Number(webSearchMaxResults || 5))));
     if (displayName !== void 0) store.set("displayName", String(displayName).trim().slice(0, 24));
     if (proactiveEnabled !== void 0) store.set("proactiveEnabled", !!proactiveEnabled);
     if (proactiveMinIdleHours !== void 0) store.set("proactiveMinIdleHours", Number(proactiveMinIdleHours));
@@ -1575,13 +1697,58 @@ function createServer(port, frontendDist, mm) {
     }
   });
   server2.get("/api/usage", authMiddleware, (req, res) => {
-    const sub = dbGet("SELECT * FROM subscriptions WHERE user_id = ?", [req.userId]);
+    const sub = resetSubscriptionUsageIfNeeded(req.userId);
     if (!sub) return res.json({ plan: "free", used: 0, quota: 30 });
     res.json({
       plan: sub.plan,
-      used: sub.used_today,
-      quota: sub.daily_quota,
-      remaining: sub.daily_quota - sub.used_today
+      used: Number(sub.used_today || 0),
+      quota: Number(sub.daily_quota || 30),
+      remaining: Number(sub.daily_quota || 30) - Number(sub.used_today || 0)
+    });
+  });
+  server2.get("/api/dashboard-summary", authMiddleware, (req, res) => {
+    const characters = dbAll("SELECT id, name, avatar, personality, greeting, created_at FROM characters WHERE user_id = ? ORDER BY created_at DESC", [req.userId]);
+    const bots = dbAll("SELECT * FROM weixin_bots WHERE user_id = ? ORDER BY created_at DESC", [req.userId]).map((b) => ({
+      ...b,
+      active: mm.isRunning(b.id)
+    }));
+    const todayStart = getDayStart();
+    const localTodayCountRow = dbGet("SELECT COUNT(1) as total FROM local_chat_messages WHERE user_id = ? AND created_at >= ?", [req.userId, todayStart]);
+    const wechatTodayCountRow = dbGet("SELECT COUNT(1) as total FROM messages m INNER JOIN weixin_bots b ON b.id = m.bot_id WHERE b.user_id = ? AND m.created_at >= ?", [req.userId, todayStart]);
+    const localRows = dbAll(
+      "SELECT m.id, m.role, m.content, m.created_at, c.name as character_name, c.id as character_id FROM local_chat_messages m INNER JOIN characters c ON c.id = m.character_id WHERE m.user_id = ? ORDER BY m.created_at DESC LIMIT 8",
+      [req.userId]
+    );
+    const wechatRows = dbAll(
+      "SELECT m.id, m.direction, m.content, m.created_at, c.name as character_name, c.id as character_id FROM messages m INNER JOIN weixin_bots b ON b.id = m.bot_id INNER JOIN characters c ON c.id = b.character_id WHERE b.user_id = ? ORDER BY m.created_at DESC LIMIT 8",
+      [req.userId]
+    );
+    const recentActivity = [...localRows.map((row) => ({
+      id: row.id,
+      source: "companion",
+      characterId: row.character_id,
+      characterName: row.character_name,
+      role: row.role,
+      content: row.content,
+      created_at: row.created_at
+    })), ...wechatRows.map((row) => ({
+      id: row.id,
+      source: "wechat",
+      characterId: row.character_id,
+      characterName: row.character_name,
+      role: row.direction === "out" ? "assistant" : "user",
+      content: row.content,
+      created_at: row.created_at
+    }))].sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0)).slice(0, 8);
+    const focusCharacterId = recentActivity[0]?.characterId || characters[0]?.id || "";
+    const relationshipMemory = focusCharacterId ? getRelationshipMemory(req.userId, focusCharacterId) : null;
+    res.json({
+      characters,
+      bots,
+      todayMessages: Number(localTodayCountRow?.total || 0) + Number(wechatTodayCountRow?.total || 0),
+      recentActivity,
+      focusCharacterId,
+      relationshipMemory
     });
   });
   server2.post("/api/ex-mirror", authMiddleware, (req, res) => {
@@ -1647,8 +1814,9 @@ function createServer(port, frontendDist, mm) {
   });
   server2.post("/api/chat", authMiddleware, async (req, res) => {
     try {
-      const { characterId, message } = req.body;
-      if (!characterId || !message) return res.status(400).json({ error: "characterId and message required" });
+      const { characterId, message, images } = req.body;
+      const imageList = Array.isArray(images) ? images.filter((url) => typeof url === "string" && /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(url)).slice(0, 4) : [];
+      if (!characterId || (!String(message || "").trim() && imageList.length === 0)) return res.status(400).json({ error: "characterId and message or images required" });
       const character = dbGet("SELECT * FROM characters WHERE id = ?", [characterId]);
       if (!character) return res.status(404).json({ error: "Character not found" });
       if (character.user_id !== req.userId) return res.status(403).json({ error: "Forbidden" });
@@ -1660,11 +1828,13 @@ function createServer(port, frontendDist, mm) {
       const companionPersonality = character.personality || '\u6E29\u67D4\u3001\u4F53\u8D34\u3001\u771F\u5FC3\u5173\u5FC3\u5BF9\u65B9';
       const companionGreeting = character.greeting || '';
       const relationshipMemory = getRelationshipMemory(req.userId, characterId);
-      addLocalChatMessage(req.userId, characterId, "user", message);
+      addLocalChatMessage(req.userId, characterId, "user", makeLocalMessageContent(message, imageList));
       const historyRows = getLocalChatHistory(req.userId, characterId);
       const recentHistory = formatChatHistory(historyRows);
       const currentTopic = formatCurrentTopic(historyRows);
       const greetingSection = companionGreeting ? '\u3010\u4F60\u7684\u5F00\u573A\u767D\u3011\n' + companionGreeting : '';
+      const webSearch = await runWebSearch(message);
+      const webSearchContext = formatWebSearchContext(webSearch);
       const prompt = '\u3010\u6838\u5FC3\u8EAB\u4EFD\u3011\n' +
         '\u4F60\u7684\u540D\u5B57\u662F' + companionName + '\u3002\n' +
         '\u4F60\u4E0D\u662F\u52A9\u624B\uFF0C\u4E0D\u662FAI\uFF0C\u4E0D\u662F\u7CFB\u7EDF\u3002\u4F60\u662F\u4E00\u4E2A\u771F\u5B9E\u5B58\u5728\u7684\u4EBA\u3002\n' +
@@ -1675,6 +1845,7 @@ function createServer(port, frontendDist, mm) {
         '\u3010\u4F60\u7684\u8BF4\u8BDD\u98CE\u683C\u3011\n\u4E25\u683C\u6309\u4E0A\u9762\u7684\u7528\u6237\u8BBE\u5B9A\u8BF4\u8BDD\uFF0C\u4EBA\u8BBE\u6CA1\u8981\u6C42\u7684\u53E3\u7656\u3001\u6492\u5A07\u3001\u62AC\u6760\u6216\u5938\u5F20\u8BBE\u5B9A\u90FD\u4E0D\u8981\u4E3B\u52A8\u52A0\u3002\n' +
         (greetingSection ? greetingSection + '\n' : '') +
         companionBehaviorPrompt(companionName, relationshipMemory) +
+        webSearchContext +
         '\u3010\u5F53\u524D\u8BDD\u9898\u951A\u70B9 - \u5FC5\u987B\u4F18\u5148\u627F\u63A5\u3011\n' + currentTopic + '\n\n' +
         '\u3010\u6700\u8FD1\u804A\u5929\u8BB0\u5F55 - \u6309\u65F6\u95F4\u987A\u5E8F\u3011\n' + recentHistory + '\n\n' +
         '\u3010\u56DE\u590D\u683C\u5F0F\u89C4\u5219 - \u6700\u91CD\u8981\u3011\n' +
@@ -1697,10 +1868,13 @@ function createServer(port, frontendDist, mm) {
         '9. \u56DE\u590D\u4F7F\u7528\u7528\u6237\u4F7F\u7528\u7684\u8BED\u8A00\n\n' +
         '\u3010\u7528\u6237\u8BF4\u3011\n' + message + '\n\n' +
         '\u3010' + companionName + '\u7684\u56DE\u590D\uFF08\u5206\u62102-4\u6761\u77ED\u6D88\u606F\uFF09\u3011';
+      const userContent = imageList.length
+        ? [{ type: "text", text: prompt }, ...imageList.map((url) => ({ type: "image_url", image_url: { url } }))]
+        : prompt;
       const resp = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
-        body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], max_tokens: 2e3 })
+        body: JSON.stringify({ model, messages: [{ role: "user", content: userContent }], max_tokens: 2e3 })
       });
       if (!resp.ok) {
         const errText = await resp.text();
@@ -1709,10 +1883,15 @@ function createServer(port, frontendDist, mm) {
       const data = await resp.json();
       const rawReply = data.choices?.[0]?.message?.content || "\uFF08AI \u672A\u8FD4\u56DE\u5185\u5BB9\uFF09";
       const reply = await stabilizeReply(rawReply, { companionName, userId: req.userId, characterId });
-      addLocalChatMessage(req.userId, characterId, "assistant", reply);
-      updateRelationshipMemory(req.userId, characterId, message, reply);
+      const replyLines = String(reply).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      const storedReplyLines = replyLines.length ? replyLines : [String(reply).trim()].filter(Boolean);
+      for (const line of storedReplyLines) {
+        addLocalChatMessage(req.userId, characterId, "assistant", line);
+      }
+      updateRelationshipMemory(req.userId, characterId, message, storedReplyLines.join("\n"));
+      incrementSubscriptionUsage(req.userId, 1);
       saveDB();
-      res.json({ reply });
+      res.json({ reply: storedReplyLines.join("\n"), replyLines: storedReplyLines });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { getBots, getCharacters, getUsage } from '../api'
+﻿import { useEffect, useMemo, useState } from 'react'
+import { getBots, getCharacters, getRelationshipMemory, getUsage } from '../api'
 import { CheckIcon, HeartDecoration, MessageIcon, ShieldIcon, StarArt, StatusOnlineIcon } from '@/components/Icons'
 import { useEmotionEngine } from '@/store/emotionEngine'
 import { useI18n } from '@/I18nProvider'
@@ -27,51 +27,59 @@ interface Bot {
   active: boolean
 }
 
+interface RelationshipMemory {
+  affection: number
+  trust: number
+  loneliness: number
+  fatigue: number
+  stability: number
+}
+
 const zhCopy = {
-  title: '\u966a\u4f34\u6210\u957f\u4e2d\u5fc3',
-  subtitle: '\u8fd9\u91cc\u4e0d\u518d\u8c08\u5957\u9910\uff0c\u800c\u662f\u8bb0\u5f55\u4f60\u548c\u5ba0\u7269\u3001\u89d2\u8272\u4e4b\u95f4\u7684\u5173\u7cfb\u5982\u4f55\u6162\u6162\u957f\u51fa\u6765\u3002',
-  currentState: '\u5f53\u524d\u966a\u4f34\u72b6\u6001',
-  focus: '\u4eca\u65e5\u5173\u7cfb\u7126\u70b9',
-  daysTogether: '\u966a\u4f34\u5929\u6570',
-  activeRoles: '\u6d3b\u8dc3\u89d2\u8272',
-  interactions: '\u4eca\u65e5\u4e92\u52a8',
-  emotion: '\u5f53\u524d\u60c5\u7eea',
-  affection: '\u4eb2\u5bc6\u5ea6',
-  trust: '\u4fe1\u4efb\u503c',
-  lonely: '\u5b64\u72ec\u611f',
-  fatigue: '\u75b2\u52b3\u503c',
-  growthPanel: '\u6210\u957f\u9762\u677f',
-  timeline: '\u5173\u7cfb\u65f6\u95f4\u7ebf',
-  unlocked: '\u5df2\u89e3\u9501\u7684\u966a\u4f34\u8fdb\u5ea6',
-  companionSummary: '\u966a\u4f34\u6458\u8981',
-  moodLine: '\u4f60\u7684\u5ba0\u7269\u4f1a\u6839\u636e\u8fd9\u4e9b\u72b6\u6001\u7ee7\u7eed\u53d8\u5316\u3002',
-  unitDays: '\u5929',
-  unitRoles: '\u4e2a',
-  unitMsgs: '\u6761',
-  noChars: '\u4f60\u8fd8\u6ca1\u6709\u521b\u5efa\u89d2\u8272\uff0c\u5148\u4ece\u7b2c\u4e00\u4e2a\u966a\u4f34\u5bf9\u8c61\u5f00\u59cb\u5427\u3002',
-  activeNow: '\u5f53\u524d\u5728\u7ebf',
-  firstRole: '\u521b\u5efa\u4e86\u7b2c\u4e00\u4e2a\u89d2\u8272',
-  roleCount: '\u76ee\u524d\u62e5\u6709 {count} \u4e2a\u89d2\u8272',
-  connectedCount: '\u5df2\u8fde\u63a5 {count} \u4e2a\u89d2\u8272\u5230\u966a\u4f34\u7cfb\u7edf',
-  usedToday: '\u4eca\u5929\u5df2\u7ecf\u4e92\u52a8 {count} \u6b21',
-  trustHint: '\u53ef\u4ee5\u5b89\u6392\u66f4\u591a\u8fde\u7eed\u4e92\u52a8\uff0c\u8ba9\u4fe1\u4efb\u7ee7\u7eed\u7a33\u5b9a\u4e0a\u5347\u3002',
-  lonelyHint: '\u4eca\u5929\u9002\u5408\u591a\u53d1\u8d77\u51e0\u6b21\u5bf9\u8bdd\uff0c\u964d\u4f4e\u5b83\u7684\u7b49\u5f85\u611f\u3002',
-  fatigueHint: '\u5b83\u6709\u4e00\u70b9\u7d2f\u4e86\uff0c\u8f7b\u4e00\u70b9\u3001\u6162\u4e00\u70b9\u7684\u4e92\u52a8\u4f1a\u66f4\u8212\u670d\u3002',
-  affectionHint: '\u73b0\u5728\u5f88\u9002\u5408\u89e6\u53d1\u6492\u5a07\u3001\u5f00\u5fc3\u3001\u8d34\u8d34\u4e00\u7c7b\u7684\u60c5\u7eea\u53cd\u9988\u3002',
-  unlock1: '\u57fa\u7840\u60c5\u7eea\u53cd\u9988',
-  unlock2: '\u89d2\u8272\u5173\u7cfb\u8bb0\u5fc6',
-  unlock3: '\u6d3b\u8dc3\u5ea6\u8ffd\u8e2a',
-  unlock4: '\u957f\u671f\u966a\u4f34\u72b6\u6001',
-  milestone1: '\u4f60\u4eec\u7684\u5173\u7cfb\u5df2\u7ecf\u4ece\u201c\u4f7f\u7528\u8f6f\u4ef6\u201d\u8d70\u5411\u201c\u6301\u7eed\u966a\u4f34\u201d\u3002',
-  milestone2: '\u89d2\u8272\u8d8a\u591a\uff0c\u60c5\u7eea\u7cfb\u7edf\u8d8a\u6709\u5c42\u6b21\u611f\u3002',
-  milestone3: '\u540e\u7eed\u5f88\u9002\u5408\u63a5\u5165\u56de\u5fc6\u3001\u52cb\u7ae0\u548c\u52a8\u4f5c\u89e3\u9501\u3002',
+  title: '陪伴成长中心',
+  subtitle: '这里不再谈套餐，而是记录你和宠物、角色之间的关系如何慢慢长出来。',
+  currentState: '当前陪伴状态',
+  focus: '今日关系焦点',
+  daysTogether: '陪伴天数',
+  activeRoles: '活跃角色',
+  interactions: '今日互动',
+  emotion: '当前情绪',
+  affection: '亲密度',
+  trust: '信任值',
+  lonely: '孤独感',
+  fatigue: '疲劳值',
+  growthPanel: '成长面板',
+  timeline: '关系时间线',
+  unlocked: '已解锁的陪伴进度',
+  companionSummary: '陪伴摘要',
+  moodLine: '这些值会直接影响后续陪伴状态。',
+  unitDays: '天',
+  unitRoles: '个',
+  unitMsgs: '条',
+  noChars: '你还没有创建角色，先从第一个陪伴对象开始吧。',
+  activeNow: '当前在线',
+  firstRole: '创建了第一个角色',
+  roleCount: '目前拥有 {count} 个角色',
+  connectedCount: '已连接 {count} 个角色到陪伴系统',
+  usedToday: '今天已经互动 {count} 次',
+  trustHint: '可以安排更多连续互动，让信任继续稳定上升。',
+  lonelyHint: '今天适合多发起几次对话，降低她的等待感。',
+  fatigueHint: '她有一点累了，轻一点、慢一点的互动会更舒服。',
+  affectionHint: '现在很适合触发撒娇、开心、贴贴一类的情绪反馈。',
+  unlock1: '基础情绪反馈',
+  unlock2: '角色关系记忆',
+  unlock3: '活跃度追踪',
+  unlock4: '长期陪伴状态',
+  milestone1: '你们的关系已经从“使用软件”走向“持续陪伴”。',
+  milestone2: '角色越多，情绪系统越有层次感。',
+  milestone3: '后续很适合接入回忆、勋章和动作解锁。',
 } as const
 
 const enCopy = {
   title: 'Companion Growth Center',
   subtitle: 'This page is no longer about plans. It tracks how your bond with the pet and roles is growing over time.',
   currentState: 'Current Companion State',
-  focus: "Today's Relationship Focus",
+  focus: "Today\'s Relationship Focus",
   daysTogether: 'Days Together',
   activeRoles: 'Active Roles',
   interactions: 'Today Interactions',
@@ -84,7 +92,7 @@ const enCopy = {
   timeline: 'Relationship Timeline',
   unlocked: 'Unlocked Progress',
   companionSummary: 'Companion Summary',
-  moodLine: 'The pet will keep evolving based on these values.',
+  moodLine: 'These values directly shape the companion state.',
   unitDays: 'days',
   unitRoles: 'roles',
   unitMsgs: 'msgs',
@@ -96,7 +104,7 @@ const enCopy = {
   usedToday: 'Interacted {count} times today',
   trustHint: 'More steady interactions today would help trust continue rising.',
   lonelyHint: 'A few more check-ins today would reduce that waiting feeling.',
-  fatigueHint: 'The pet is a little tired. Softer, slower interaction would fit well.',
+  fatigueHint: 'The companion is a little tired. Softer, slower interaction would fit well.',
   affectionHint: 'This is a good moment for clingy, happy, or affectionate feedback.',
   unlock1: 'Base emotion feedback',
   unlock2: 'Role relationship memory',
@@ -111,21 +119,44 @@ export default function SubscribePage() {
   const [usage, setUsage] = useState<Usage | null>(null)
   const [characters, setCharacters] = useState<Character[]>([])
   const [bots, setBots] = useState<Bot[]>([])
+  const [relationshipMemory, setRelationshipMemory] = useState<RelationshipMemory>({ affection: 35, trust: 35, loneliness: 0, fatigue: 10, stability: 45 })
   const [loading, setLoading] = useState(true)
-  const { memory, label, message } = useEmotionEngine()
+  const { label, message } = useEmotionEngine()
   const { locale } = useI18n()
 
   useEffect(() => {
-    Promise.all([getUsage(), getCharacters(), getBots()])
-      .then(([usageData, characterList, botList]) => {
+    let cancelled = false
+    async function load() {
+      try {
+        const [usageData, characterList, botList] = await Promise.all([getUsage(), getCharacters(), getBots()])
+        if (cancelled) return
         setUsage(usageData)
         setCharacters(characterList)
         setBots(botList)
-      })
-      .catch((err) => {
+
+        const focusCharacterId = characterList[0]?.id
+        if (focusCharacterId) {
+          const memory = await getRelationshipMemory(focusCharacterId)
+          if (!cancelled) {
+            setRelationshipMemory({
+              affection: Number(memory.affection || 35),
+              trust: Number(memory.trust || 35),
+              loneliness: Number(memory.loneliness || 0),
+              fatigue: Number(memory.fatigue || 10),
+              stability: Number(memory.stability || 45),
+            })
+          }
+        }
+      } catch (err) {
         console.error(err)
-      })
-      .finally(() => setLoading(false))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const copy = locale === 'zh' ? zhCopy : enCopy
@@ -137,11 +168,11 @@ export default function SubscribePage() {
   const interactionsToday = usage?.used ?? 0
   const usageQuota = usage?.quota ?? 30
 
-  const focusText = memory.loneliness > 50
+  const focusText = relationshipMemory.loneliness > 50
     ? copy.lonelyHint
-    : memory.fatigue > 50
+    : relationshipMemory.fatigue > 50
       ? copy.fatigueHint
-      : memory.trust > 55
+      : relationshipMemory.trust > 55
         ? copy.affectionHint
         : copy.trustHint
 
@@ -153,18 +184,13 @@ export default function SubscribePage() {
   ]
 
   const growthItems = [
-    { label: copy.affection, value: memory.affectionLevel, Icon: HeartDecoration },
-    { label: copy.trust, value: memory.trust, Icon: ShieldIcon },
-    { label: copy.lonely, value: memory.loneliness, Icon: StarArt },
-    { label: copy.fatigue, value: memory.fatigue, Icon: MessageIcon },
+    { label: copy.affection, value: relationshipMemory.affection, Icon: HeartDecoration },
+    { label: copy.trust, value: relationshipMemory.trust, Icon: ShieldIcon },
+    { label: copy.lonely, value: relationshipMemory.loneliness, Icon: StarArt },
+    { label: copy.fatigue, value: relationshipMemory.fatigue, Icon: MessageIcon },
   ]
 
-  const unlockedItems = [
-    copy.unlock1,
-    copy.unlock2,
-    copy.unlock3,
-    copy.unlock4,
-  ]
+  const unlockedItems = [copy.unlock1, copy.unlock2, copy.unlock3, copy.unlock4]
 
   if (loading) {
     return (

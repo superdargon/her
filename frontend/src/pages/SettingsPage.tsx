@@ -108,6 +108,11 @@ export default function SettingsPage() {
   const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState('deepseek-chat')
   const [baseUrl, setBaseUrl] = useState('https://api.deepseek.com')
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false)
+  const [webSearchProvider, setWebSearchProvider] = useState('tavily')
+  const [webSearchApiKey, setWebSearchApiKey] = useState('')
+  const [webSearchEndpoint, setWebSearchEndpoint] = useState('https://api.tavily.com/search')
+  const [webSearchMaxResults, setWebSearchMaxResults] = useState(5)
   const [displayName, setDisplayName] = useState('')
   const [saved, setSaved] = useState(false)
   const [petEnabled, setPetEnabledState] = useState(false)
@@ -141,6 +146,11 @@ export default function SettingsPage() {
         if (data.aiProvider) setProvider(data.aiProvider)
         if (data.aiModel) setModel(data.aiModel)
         if (data.aiBaseUrl) setBaseUrl(data.aiBaseUrl)
+        setWebSearchEnabled(data.webSearchEnabled === true)
+        setWebSearchProvider(String(data.webSearchProvider || 'tavily'))
+        setWebSearchApiKey(data.webSearchApiKey ? '***' : '')
+        setWebSearchEndpoint(String(data.webSearchEndpoint || 'https://api.tavily.com/search'))
+        setWebSearchMaxResults(Number(data.webSearchMaxResults || 5))
         setDisplayName(String(data.displayName || ''))
         setProactiveEnabled(data.proactiveEnabled !== false)
         setProactiveMinIdleHours(Number(data.proactiveMinIdleHours || 4))
@@ -211,6 +221,10 @@ export default function SettingsPage() {
         aiProvider: provider,
         aiModel: model,
         aiBaseUrl: baseUrl,
+        webSearchEnabled,
+        webSearchProvider,
+        webSearchEndpoint: webSearchEndpoint.trim(),
+        webSearchMaxResults: Math.min(10, Math.max(1, Math.round(webSearchMaxResults))),
         displayName: displayName.trim().slice(0, 24),
         proactiveEnabled,
         proactiveMinIdleHours: Math.max(1, Math.round(proactiveMinIdleHours)),
@@ -223,6 +237,7 @@ export default function SettingsPage() {
         personaStabilizerFallbackStyle: personaFallbackStyle,
       }
       if (apiKey) body.aiApiKey = apiKey
+      if (webSearchApiKey) body.webSearchApiKey = webSearchApiKey
       await api('/config', { method: 'PUT', body: JSON.stringify(body) })
       setPetEnabled(petEnabled)
       setSaved(true)
@@ -395,6 +410,48 @@ export default function SettingsPage() {
             <input className="apple-input" type="text" placeholder="https://api.openai.com/v1" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} style={{ width: '100%', fontSize: 14, padding: '10px 14px' }} />
             <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 4 }}>
               {t('settings.baseUrlHint')}
+            </p>
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 24, marginBottom: 32 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 16 }}>
+              <div>
+                <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text)', marginBottom: 4 }}>联网搜索</h3>
+                <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', margin: 0 }}>用于实时信息查询，搜索内容只作为本轮临时参考，不写入关系记忆。</p>
+              </div>
+              <Toggle checked={webSearchEnabled} onChange={setWebSearchEnabled} label={webSearchEnabled ? '已开启' : '已关闭'} />
+            </div>
+            <div className="settings-control-grid two">
+              <label>搜索服务
+                <select
+                  className="apple-input"
+                  value={webSearchProvider}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setWebSearchProvider(value)
+                    if (value === 'tavily') setWebSearchEndpoint('https://api.tavily.com/search')
+                    if (value === 'serper') setWebSearchEndpoint('https://google.serper.dev/search')
+                    if (value === 'bing') setWebSearchEndpoint('https://api.bing.microsoft.com/v7.0/search')
+                  }}
+                >
+                  <option value="tavily">Tavily</option>
+                  <option value="serper">Serper</option>
+                  <option value="bing">Bing Search</option>
+                  <option value="custom">自定义</option>
+                </select>
+              </label>
+              <label>结果数量
+                <input className="apple-input" type="number" min={1} max={10} value={webSearchMaxResults} onChange={(e) => setWebSearchMaxResults(Number(e.target.value || 1))} />
+              </label>
+              <label>Search API Key
+                <input className="apple-input" type="password" placeholder="搜索服务的 Key" value={webSearchApiKey} onChange={(e) => setWebSearchApiKey(e.target.value)} />
+              </label>
+              <label>搜索接口地址
+                <input className="apple-input" type="text" placeholder="https://api.tavily.com/search" value={webSearchEndpoint} onChange={(e) => setWebSearchEndpoint(e.target.value)} />
+              </label>
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', margin: '8px 0 0' }}>
+              开源版不内置第三方搜索 Key。未配置 Key 时，聊天仍会正常走大模型，不会联网补充资料。
             </p>
           </div>
 

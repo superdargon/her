@@ -1,4 +1,4 @@
-# 妳 / Her
+﻿# 妳 / Her
 
 妳 is an open-source desktop AI companion app built with Electron, React, Express, and local SQLite/WASM storage.
 
@@ -71,3 +71,4 @@ Generated folders such as `node_modules/`, `frontend/dist/`, and `dist-her/` are
 ## License
 
 MIT
+

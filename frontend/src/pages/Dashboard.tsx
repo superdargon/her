@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api, getBots, getCharacters, getMessages } from '../api'
+import { api } from '../api'
 import Mascot from '@/components/Mascot'
 import {
   CharacterAvatarArt,
@@ -36,16 +36,57 @@ interface Bot {
   created_at?: number
 }
 
-interface Message {
+interface ActivityRow {
   id: string
+  source: 'companion' | 'wechat'
+  characterId: string
+  characterName: string
+  role: 'user' | 'assistant'
+  content: string
   created_at?: number
 }
 
-function isToday(timestamp?: number) {
-  if (!timestamp) return false
+interface RelationshipMemory {
+  affection: number
+  trust: number
+  loneliness: number
+  fatigue: number
+  stability: number
+}
+
+interface DashboardSummary {
+  characters: Character[]
+  bots: Bot[]
+  todayMessages: number
+  recentActivity: ActivityRow[]
+  focusCharacterId?: string
+  relationshipMemory?: RelationshipMemory | null
+}
+
+interface ModelConfig {
+  aiProvider?: string
+  aiModel?: string
+  aiBaseUrl?: string
+  hasApiKey?: boolean
+}
+
+function formatTime(timestamp?: number) {
+  if (!timestamp) return '--'
   const date = new Date(timestamp)
-  const today = new Date()
-  return date.toDateString() === today.toDateString()
+  const now = new Date()
+  if (date.toDateString() === now.toDateString()) {
+    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
+  }
+  return `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`
+}
+
+function formatProviderName(provider?: string) {
+  const value = String(provider || '').trim().toLowerCase()
+  if (value === 'deepseek') return 'DeepSeek'
+  if (value === 'openai') return 'OpenAI'
+  if (value === 'siliconflow') return 'SiliconFlow'
+  if (value === 'custom') return 'Custom'
+  return provider || '未选择服务'
 }
 
 export default function Dashboard() {
@@ -53,6 +94,9 @@ export default function Dashboard() {
   const [chars, setChars] = useState<Character[]>([])
   const [bots, setBots] = useState<Bot[]>([])
   const [todayMessages, setTodayMessages] = useState(0)
+  const [activityRows, setActivityRows] = useState<ActivityRow[]>([])
+  const [relationshipMemory, setRelationshipMemory] = useState<RelationshipMemory>({ affection: 35, trust: 35, loneliness: 0, fatigue: 10, stability: 45 })
+  const [modelConfig, setModelConfig] = useState<ModelConfig>({})
   const [loading, setLoading] = useState(true)
 
   const navigate = useNavigate()
@@ -65,25 +109,34 @@ export default function Dashboard() {
 
     async function loadDashboard() {
       try {
-        const [config, characters, botList] = await Promise.all([api('/config'), getCharacters(), getBots()])
+        const [config, summary] = await Promise.all([
+          api('/config'),
+          api('/dashboard-summary') as Promise<DashboardSummary>,
+        ])
         if (cancelled) return
 
         setDisplayName(String(config.displayName || '').trim())
-        setChars(characters)
-        setBots(botList)
-
-        if (botList.length === 0) {
-          setTodayMessages(0)
-        } else {
-          const messageGroups = await Promise.all(
-            botList.map((bot: Bot) => getMessages(bot.id, 0, 200).catch(() => [] as Message[]))
-          )
-          if (!cancelled) {
-            setTodayMessages(messageGroups.flat().filter((msg: Message) => isToday(msg.created_at)).length)
-          }
+        setModelConfig({
+          aiProvider: String(config.aiProvider || ''),
+          aiModel: String(config.aiModel || ''),
+          aiBaseUrl: String(config.aiBaseUrl || ''),
+          hasApiKey: Boolean(config.hasApiKey),
+        })
+        setChars(summary.characters || [])
+        setBots(summary.bots || [])
+        setTodayMessages(Number(summary.todayMessages || 0))
+        setActivityRows(summary.recentActivity || [])
+        if (summary.relationshipMemory) {
+          setRelationshipMemory({
+            affection: Number(summary.relationshipMemory.affection || 35),
+            trust: Number(summary.relationshipMemory.trust || 35),
+            loneliness: Number(summary.relationshipMemory.loneliness || 0),
+            fatigue: Number(summary.relationshipMemory.fatigue || 10),
+            stability: Number(summary.relationshipMemory.stability || 45),
+          })
         }
 
-        trigger('successful_reply')
+        trigger(Number(summary.todayMessages || 0) > 0 ? 'successful_reply' : 'daily_login')
       } catch (err) {
         console.error(err)
         trigger('network_error')
@@ -100,15 +153,18 @@ export default function Dashboard() {
   }, [trigger])
 
   const connectedCount = bots.filter((bot) => bot.active).length
+  const displayAffection = relationshipMemory.affection
+  const displayTrust = relationshipMemory.trust
+  const displayLoneliness = relationshipMemory.loneliness
+  const modelName = modelConfig.aiModel?.trim() || '未选择模型'
+  const providerName = formatProviderName(modelConfig.aiProvider)
+  const modelConfigured = Boolean(modelConfig.hasApiKey && modelConfig.aiModel && modelConfig.aiBaseUrl)
+  const modelStatusText = modelConfigured ? t('dashboard.configured') : '未配置'
+  const modelStatusHint = modelConfigured ? `${providerName} · ${modelConfig.aiBaseUrl}` : '请在设置中心填写 API Key、模型和接口地址'
 
   const userName = useMemo(() => {
     return displayName ? t('dashboard.welcomeWithName', { name: displayName }) : t('dashboard.welcomeFallback')
   }, [displayName, t])
-
-  const activityRows = [
-    { name: t('dashboard.system'), text: t('dashboard.systemRow1'), time: t('dashboard.today'), count: 0 },
-    { name: t('dashboard.roles'), text: t('dashboard.systemRow2'), time: t('dashboard.today'), count: 0 },
-  ]
 
   const systemRows = [
     { label: t('dashboard.backend'), value: t('dashboard.running') },
@@ -126,14 +182,14 @@ export default function Dashboard() {
 
   const growthCopy = locale === 'zh'
     ? {
-        title: '\u6210\u957f\u6458\u8981',
-        label: '\u966a\u4f34\u5173\u7cfb',
-        action: '\u67e5\u770b\u6210\u957f',
-        affection: '\u4eb2\u5bc6\u5ea6',
-        trust: '\u4fe1\u4efb\u503c',
-        hint1: '\u60c5\u7eea\u7cfb\u7edf\u5df2\u63a5\u7ba1\u966a\u4f34\u72b6\u6001',
-        hint2: '\u66f4\u591a\u4e92\u52a8\u4f1a\u6301\u7eed\u62c9\u9ad8\u5173\u7cfb\u503c',
-        hint3: '\u6210\u957f\u4e2d\u5fc3\u91cc\u53ef\u4ee5\u770b\u5b8c\u6574\u5173\u7cfb\u8f68\u8ff9',
+        title: '成长摘要',
+        label: '陪伴关系',
+        action: '查看成长',
+        affection: '亲密度',
+        trust: '信任值',
+        hint1: '情绪系统已接管陪伴状态',
+        hint2: '更多互动会持续拉高关系值',
+        hint3: '成长中心里可以看完整关系轨迹',
       }
     : {
         title: 'Growth Summary',
@@ -203,14 +259,13 @@ export default function Dashboard() {
                   <StarArt size={26} />
                 </button>
               </div>
-
             </div>
           </section>
 
           <div className="emotion-memory-strip compact" aria-label="Emotion memory">
             <span>{t('dashboard.emotionMemory')}: {label}</span>
-            <span title={`Trust ${memory.trust} / Lonely ${memory.loneliness} / Fatigue ${memory.fatigue}`}>
-              {t('dashboard.affection')} {memory.affectionLevel}
+            <span title={`Trust ${displayTrust} / Lonely ${displayLoneliness} / Fatigue ${relationshipMemory.fatigue}`}>
+              {t('dashboard.affection')} {displayAffection}
             </span>
           </div>
 
@@ -241,11 +296,11 @@ export default function Dashboard() {
 
             <article className="metric-card green">
               <span>{t('dashboard.modelStatus')}</span>
-              <strong className="model-name">DeepSeek</strong>
+              <strong className="model-name">{modelName}</strong>
               <em>
-                <StatusOnlineIcon size={14} /> {t('dashboard.configured')}
+                <StatusOnlineIcon size={14} /> {modelStatusText}
               </em>
-              <p>{t('dashboard.apiHealthy')}</p>
+              <p title={modelStatusHint}>{modelStatusHint}</p>
               <div className="metric-art">
                 <ShieldIcon size={26} />
               </div>
@@ -281,7 +336,7 @@ export default function Dashboard() {
                         <small>{t('dashboard.created')} {char.created_at ? new Date(char.created_at).toLocaleDateString() : '--'}</small>
                       </div>
 
-                      <button className="more-btn" aria-label={t('dashboard.more')} onClick={() => setEmotion(connected ? 'happy' : 'sad')}>
+                      <button className="more-btn" aria-label={t('dashboard.more')} onClick={() => navigate(`/companion/${char.id}`)}>
                         <MoreIcon size={16} />
                       </button>
                     </article>
@@ -311,17 +366,24 @@ export default function Dashboard() {
                 <span>{t('dashboard.time')}</span>
                 <span>{t('dashboard.count')}</span>
               </div>
-              {activityRows.map((row, index) => (
-                <div key={`${row.name}-${index}`} className="chat-table-row">
+              {activityRows.length > 0 ? activityRows.map((row, index) => (
+                <div key={`${row.id}-${index}`} className="chat-table-row">
                   <span className="table-avatar">
                     <CharacterAvatarArt index={index} size={34} />
-                    {row.name}
+                    {row.characterName}
                   </span>
-                  <span>{row.text}</span>
-                  <span>{row.time}</span>
-                  <span>{row.count}</span>
+                  <span>{row.content}</span>
+                  <span>{formatTime(row.created_at)}</span>
+                  <span>{row.source === 'wechat' ? '微信' : '陪伴'}</span>
                 </div>
-              ))}
+              )) : (
+                <div className="chat-table-row">
+                  <span className="table-avatar">--</span>
+                  <span>还没有新的对话记录</span>
+                  <span>--</span>
+                  <span>--</span>
+                </div>
+              )}
             </div>
           </section>
         </section>
@@ -334,8 +396,8 @@ export default function Dashboard() {
               </div>
               <Mascot emotion={emotion} label={label} message={message} memory={memory} variant="compact" />
               <div className="side-memory-row">
-                <span>{t('dashboard.trust')} {memory.trust}</span>
-                <span>{t('dashboard.lonely')} {memory.loneliness}</span>
+                <span>{t('dashboard.trust')} {displayTrust}</span>
+                <span>{t('dashboard.lonely')} {displayLoneliness}</span>
               </div>
             </section>
           )}
@@ -354,22 +416,22 @@ export default function Dashboard() {
               <div className="usage-row">
                 <span>{growthCopy.affection}</span>
                 <b>
-                  {memory.affectionLevel}
+                  {displayAffection}
                   <small>/ 100</small>
                 </b>
               </div>
               <div className="usage-bar">
-                <span style={{ width: `${Math.min(100, memory.affectionLevel)}%` }} />
+                <span style={{ width: `${Math.min(100, displayAffection)}%` }} />
               </div>
               <div className="usage-row">
                 <span>{growthCopy.trust}</span>
                 <b>
-                  {memory.trust}
+                  {displayTrust}
                   <small>/ 100</small>
                 </b>
               </div>
               <div className="usage-bar">
-                <span style={{ width: `${Math.min(100, memory.trust)}%` }} />
+                <span style={{ width: `${Math.min(100, displayTrust)}%` }} />
               </div>
             </div>
             <ul className="plan-features">
