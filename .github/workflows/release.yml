@@ -12,6 +12,10 @@ permissions:
 jobs:
   build-windows:
     runs-on: windows-latest
+    env:
+      ELECTRON_BUILDER_CACHE: ${{ runner.temp }}\electron-builder-cache
+      ELECTRON_CACHE: ${{ runner.temp }}\electron-cache
+      CSC_IDENTITY_AUTO_DISCOVERY: false
 
     steps:
       - name: Checkout
@@ -35,8 +39,16 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+      - name: Show build config
+        shell: pwsh
+        run: |
+          node --check main.cjs
+          node --check dist-electron/main.cjs
+          Get-Content electron-builder.yml
+          Test-Path frontend/dist/index.html
+
       - name: Build Windows package
-        run: npm run build
+        run: npx electron-builder --win nsis --publish never
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
