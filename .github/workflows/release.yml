@@ -1,6 +1,6 @@
 name: Release Windows Installer
 
-on:
+"on":
   push:
     tags:
       - "v*"
@@ -12,10 +12,6 @@ permissions:
 jobs:
   build-windows:
     runs-on: windows-latest
-    env:
-      ELECTRON_BUILDER_CACHE: ${{ runner.temp }}\electron-builder-cache
-      ELECTRON_CACHE: ${{ runner.temp }}\electron-cache
-      CSC_IDENTITY_AUTO_DISCOVERY: false
 
     steps:
       - name: Checkout
@@ -39,16 +35,18 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Show build config
+      - name: Verify build inputs
         shell: pwsh
         run: |
           node --check main.cjs
           node --check dist-electron/main.cjs
           Get-Content electron-builder.yml
-          Test-Path frontend/dist/index.html
+          if (!(Test-Path frontend/dist/index.html)) { throw "frontend/dist/index.html not found" }
 
       - name: Build Windows package
         run: npx electron-builder --win nsis --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
